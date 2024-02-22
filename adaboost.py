@@ -358,11 +358,6 @@ def adaboost_select_circle(S, y, D, circles):
     for circle in circles:
         # Calculate weighted error for this line
         predictions = np.sign([margin_from_circle(point, circle) for point in S])  # pos=above, neg=below, 0=on
-        # correct,zero,wrong = compare(y,predictions)
-        # print("correct: ",correct,"zero: ",zero, "wrong: ",wrong )
-        # if wrong > correct:
-        #     predictions = change(predictions)
-        #     line[2]=line[2]*-1
         weighted_error = np.sum(D[predictions != y])
         # Update best line if this one is better
         if weighted_error < min_error:
@@ -390,35 +385,34 @@ def adaboost_line(S, y, lines, T, y_test, num_iter=8):
 
         # Calculate alpha
         alpha = 0.5 * np.log((1 - error) / error)
-        # Update weights
-        predictions = np.sign([margin_from_line(point, best_line) for point in S])
-        # correct, zero, wrong = compare(y, predictions)
-        # print("correct: ", correct, "zero: ", zero, "wrong: ", wrong)
-
-        error_train = np.sum(D[predictions != y])
-        predictions_test = np.sign([margin_from_line(point, best_line) for point in T])
-        error_test = np.sum(D_test[predictions_test != y_test])
-        empirical_errors.append(error_train)
-        true_errors.append(error_test)
-
-
-        D *= np.exp(-alpha * y * predictions)
-        D /= np.sum(D)  # Normalize
-
         # Save the classifier and its weight
         classifiers.append(best_line)
         alphas.append(alpha)
-        # Calculate empirical and true error
-        # H_x = np.sign(sum(alpha * np.sign(margin_from_line(point, line))
-        #                   for alpha, line in zip(alphas, classifiers) for point in S))
-        # empirical_error = np.mean(y != H_x)
-        # H_x_test = np.sign(sum(alpha * np.sign(margin_from_line(point, line))
-        #                        for alpha, line in zip(alphas, classifiers) for point in T))
-        # true_error = np.mean(y_test != H_x_test)
-        # empirical_errors.append(empirical_error)
-        # true_errors.append(true_error)
 
+        pred = [0] * len(S)
+        for j in range(len(alphas)):
+            predictions = ([alphas[j] * margin_from_line(point, classifiers[j]) for point in S])
+            pred = add_lists(pred, predictions)
+        predictions = np.sign(pred)
+        # predictions = np.sign([margin_from_line(point, best_line) for point in S])
+        # correct, zero, wrong = compare(y, predictions)
+        # print("correct: ", correct, "zero: ", zero, "wrong: ", wrong)
+        error_train = np.sum([predictions != y])/len(S)
 
+        pred_test = [0] * len(T)
+        for j in range(len(alphas)):
+            predictions_test = ([alphas[j] * margin_from_line(point, classifiers[j]) for point in T])
+            pred_test = add_lists(pred_test, predictions_test)
+        predictions_test = np.sign(pred_test)
+        # predictions_test = np.sign([margin_from_line(point, best_line) for point in T])
+        error_test = np.sum([predictions_test != y_test])/len(T)
+        # error_test = np.sum(D_test[predictions_test != y_test])
+        empirical_errors.append(error_train)
+        true_errors.append(error_test)
+
+        # Update weights
+        D *= np.exp(-alpha * y * predictions)
+        D /= np.sum(D)  # Normalize
 
 
 
@@ -445,6 +439,7 @@ def execute_adaboost_runs_line(file_path, num_runs=50):
         classifiers, alphas, empirical_errors, true_errors = adaboost_line(S, y_S, lines, T, y_T, num_iter=8)
         avg_empirical_errors +=empirical_errors
         avg_true_errors +=true_errors
+        # print(avg_true_errors)
         # print(len(avg_empirical_errors),len(avg_true_errors))
         # print (classifiers)
         # print (alphas)
@@ -455,7 +450,7 @@ def execute_adaboost_runs_line(file_path, num_runs=50):
         # show_graphs2(S,alphas,classifiers,y_S,i,T,y_T)
     print("************")
     print("avg empirical_error: ",avg_empirical_errors/avg)
-    print("avg true errors: ",true_errors/avg)
+    print("avg true errors: ",avg_true_errors/avg)
 
 def adaboost_circle(S, y, lines, T, y_test, num_iter=8):
     # print("run adaboost circle")
@@ -472,37 +467,44 @@ def adaboost_circle(S, y, lines, T, y_test, num_iter=8):
     for k in range(num_iter):
         # Select the best line
         best_circle, error = adaboost_select_circle(S, y, D, lines)
-        # print(best_line,error)
+
         # Calculate alpha
         alpha = 0.5 * np.log((1 - error) / error)
-        # Update weights
-        predictions = np.sign([margin_from_circle(point, best_circle) for point in S])
-        # correct, zero, wrong = compare(y, predictions)
-        # print("correct: ", correct, "zero: ", zero, "wrong: ", wrong)
-
-        error_train = np.sum(D[predictions != y])
-        predictions_test = np.sign([margin_from_circle(point, best_circle) for point in T])
-        error_test = np.sum(D_test[predictions_test != y_test])
-        empirical_errors.append(error_train)
-        true_errors.append(error_test)
-
-        D *= np.exp(-alpha * y * predictions)
-        D /= np.sum(D)  # Normalize
 
         # Save the classifier and its weight
         classifiers.append(best_circle)
         alphas.append(alpha)
-        # Calculate empirical and true error
-        # H_x = np.sign(sum(alpha * np.sign(margin_from_circle(point, circle))
-        #                   for alpha, circle in zip(alphas, classifiers) for point in S))
-        # empirical_error = np.mean(y != H_x)
-        # H_x_test = np.sign(sum(alpha * np.sign(margin_from_circle(point, circle))
-        #                        for alpha, circle in zip(alphas, classifiers) for point in T))
-        # true_error = np.mean(y_test != H_x_test)
-        # empirical_errors.append(empirical_error)
-        # true_errors.append(true_error)
-        # print("empirical_error: ",empirical_error)
-        # print("true_error: ", true_error)
+
+
+        # predictions = np.sign([margin_from_circle(point, best_circle) for point in S])
+        # correct, zero, wrong = compare(y, predictions)
+        # print("correct: ", correct, "zero: ", zero, "wrong: ", wrong)
+        pred = [0] * len(S)
+        for j in range(len(alphas)):
+            predictions = ([alphas[j] * margin_from_circle(point, classifiers[j]) for point in S])
+            pred = add_lists(pred, predictions)
+        predictions = np.sign(pred)
+
+        # error_train = np.sum(D[predictions != y])
+        error_train = np.sum([predictions != y]) /len(S)
+
+        pred_test = [0] * len(T)
+        for j in range(len(alphas)):
+            predictions_test = ([alphas[j] * margin_from_circle(point, classifiers[j]) for point in T])
+            pred_test = add_lists(pred_test, predictions_test)
+        predictions_test = np.sign(pred_test)
+        # predictions_test = np.sign([margin_from_circle(point, best_circle) for point in T])
+        error_test = np.sum([predictions_test != y_test])/len(T)
+        # error_test = np.sum(D_test[predictions_test != y_test])
+        empirical_errors.append(error_train)
+        true_errors.append(error_test)
+
+        # Update weights
+        D *= np.exp(-alpha * y * predictions)
+        D /= np.sum(D)  # Normalize
+
+
+
         # show_graphs3(S, predictions, best_circle, k, alphas, classifiers, y)
 
 
@@ -528,9 +530,7 @@ def execute_adaboost_runs_circle(file_path, num_runs=50):
         classifiers, alphas, empirical_errors, true_errors = adaboost_circle(S, y_S, circles, T, y_T, num_iter=8)
         avg_empirical_errors += empirical_errors
         avg_true_errors += true_errors
-        # print(len(avg_empirical_errors),len(avg_true_errors))
-        # print (classifiers)
-        # print (alphas)
+
         # print("empirical_errors : ",empirical_errors )
         # print("true_errors : ",true_errors )
 
@@ -538,12 +538,12 @@ def execute_adaboost_runs_circle(file_path, num_runs=50):
         # show_graphs4(S, alphas, classifiers, y_S, i, T, y_T)
     print("************")
     print("avg empirical_error: ", avg_empirical_errors / avg)
-    print("avg true errors: ", true_errors / avg)
+    print("avg true errors: ", avg_true_errors / avg)
 
 
 def main():
-    execute_adaboost_runs_line('circle_separator.txt',10)
-    execute_adaboost_runs_circle('circle_separator.txt',10)
+    execute_adaboost_runs_line('circle_separator.txt',50)
+    execute_adaboost_runs_circle('circle_separator.txt',50)
 
 if __name__ == '__main__':
     main()
